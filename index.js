@@ -2,6 +2,8 @@ const express = require("express");
 
 const App = express();
 
+App.use(express.json());
+
 let Database = require("./database");
 
 App.get("/", (req, res) => {
@@ -52,6 +54,70 @@ App.get("/book/a/:authorID", (req, res) => {
     return res.json({Books: bookName});
 });
 
+// Route    - /book/new
+// Des      - To add a book(reform it)
+// Access   - Public
+// Method   - POST
+// Params   - none
+// Body     - present
+App.post("/book/new", (req, res) => {
+    const { newBook } = req.body;
+    Database.Book.push(newBook);
+    Database.Author.forEach((author) => {
+        if(newBook.authors.includes(author.id))
+        {
+            author.books.push(newBook.ISBN);
+        }
+        return author;
+    });
+    Database.Publication.forEach((pub) => {
+        if(newBook.publication === pub.id)
+        {
+            pub.books.push(newBook.ISBN);
+            return pub;
+        }
+        return pub;
+    });
+    return res.json(Database);
+});
+
+// Route    - /book/delete/:isbn
+// Des      - To delete a book(reform it)
+// Access   - Public
+// Method   - Delete
+// Params   - isbn
+// Body     - none
+App.delete("/book/delete/:isbn", (req, res) => {
+    Database.Book = Database.Book.filter((book) => book.ISBN !== req.params.isbn);
+    return res.json(Database.Book);
+});
+
+// Route    - /book/deleteAuthor/:isbn/:id
+// Des      - To delete an author from a book(reform it)
+// Access   - Public
+// Method   - Delete
+// Params   - isbn, id
+// Body     - none
+App.delete("/book/deleteAuthor/:isbn/:id", (req, res) => {
+    const {isbn, id} = req.params;
+    Database.Book.forEach((book) => {
+        if(book.ISBN === isbn){
+            book.authors = book.authors.filter((authorID) => authorID !== parseInt(id));
+            return book;
+        }
+        return book;
+    });
+
+    Database.Author.forEach((author) => {
+        if(author.id === parseInt(id)){
+            author.books = author.books.filter((bookISBN) => bookISBN !== isbn);
+            return author;
+        }
+        return author;
+    });
+    return res.json({books: Database.Book, authors: Database.Author});
+});
+
 
 
 
@@ -88,7 +154,28 @@ App.get("/author/b/:bookID", (req, res) => {
     return res.json({Author: authorName});
 });
 
+// Route    - /author/new
+// Des      - To add a author
+// Access   - Public
+// Method   - POST
+// Params   - none
+// Body     - present
+App.post("/author/new", (req, res) => {
+    const { newAuthor } = req.body;
+    Database.Author.push(newAuthor);
+    return res.json(Database.Author);
+});
 
+// Route    - /author/delete/:id
+// Des      - To delete an author(reform it)
+// Access   - Public
+// Method   - Delete
+// Params   - id
+// Body     - none
+App.delete("/author/delete/:id", (req, res) => {
+    Database.Author = Database.Author.filter((author) => author.id !== parseInt(req.params.id));
+    return res.json(Database.Author);
+});
 
 
 
@@ -125,6 +212,55 @@ App.get("/publication/:publicationID", (req, res) => {
 App.get("/publication/b/:bookID", (req, res) => {
     const publicationName = Database.Publication.filter((pub) => pub.books.includes(req.params.bookID));
     return res.json({Publication: publicationName});
+});
+
+// Route    - /publication/new
+// Des      - To add a publication
+// Access   - Public
+// Method   - POST
+// Params   - none
+// Body     - present
+App.post("/publication/new", (req, res) => {
+    const { newPublication } = req.body;
+    Database.Publication.push(newPublication);
+    return res.json(Database.Publication);
+});
+
+// Route    - /publication/delete/:id
+// Des      - To delete a publication(reform it)
+// Access   - Public
+// Method   - Delete
+// Params   - id
+// Body     - none
+App.delete("/publication/delete/:id", (req, res) => {
+    Database.Publication = Database.Publication.filter((pub) => pub.id !== parseInt(req.params.id));
+    return res.json(Database.Publication);
+});
+
+// Route    - /publication/deleteBook/:isbn/:id
+// Des      - To delete a book from a publication(reform it)
+// Access   - Public
+// Method   - Delete
+// Params   - isbn, id
+// Body     - none
+App.delete("/publication/deleteBook/:isbn/:id", (req, res) => {
+    const {isbn, id} = req.params;
+    Database.Book.forEach((book) => {
+        if(book.ISBN === isbn){
+            book.publication = -1;
+            return book;
+        }
+        return book;
+    });
+
+    Database.Publication.forEach((publication) => {
+        if(publication.id === parseInt(id)){
+            publication.books = publication.books.filter((bookISBN) => bookISBN !== isbn);
+            return publication;
+        }
+        return publication;
+    });
+    return res.json({books: Database.Book, publications: Database.Publication});
 });
 
 

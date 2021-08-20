@@ -8,15 +8,20 @@ Book
  - Publications     - Number
  - NumOfPages       - Number
  - Categories       - [String]
+
 Author
  - id               - Number
  - name             - String
  - books            - [Sting]
+
 Publications
  - id               - Number
  - name             - String
  - books            - [Sting]
+
+
 ---- APIs ------
+
 Book
  - GET
     - to get all books ✅
@@ -31,6 +36,7 @@ Book
  - DELETE
     - delete a book
     - delete an author from the book
+
 Authors
  - GET
     - to get all authors ✅
@@ -43,6 +49,7 @@ Authors
     - update author details
  - DELETE
     - delete an author
+    
 Publication
  - GET
     - to get all publication ✅

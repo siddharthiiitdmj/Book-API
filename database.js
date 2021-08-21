@@ -1,5 +1,14 @@
 // Temporary Database
 
+/*Advantages of MongoDB(NonSQL DB)
+1. Documents in MongoDB have no structure restrictions.
+2. Documents work similar to JSON format in mongoDB.
+3. Documents have a key value pair (similar to JSON).
+4. No specific schema required before hand line SQL database.
+5. SO structuring the data is easier in mongoDB
+*/
+
+
 let Book = [
     {
       ISBN: "12345ONE",

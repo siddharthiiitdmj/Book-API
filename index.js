@@ -1,3 +1,4 @@
+
 const express = require("express");
 
 const App = express();
@@ -79,6 +80,55 @@ App.post("/book/new", (req, res) => {
         return pub;
     });
     return res.json(Database);
+});
+
+// Route    - /book/update/:isbn
+// Des      - To update a book(reform it)
+// Access   - Public
+// Method   - PUT
+// Params   - isbn
+// Body     - present
+App.put("/book/update/:isbn", (req, res) => {
+    const { newBook } = req.body;
+    const isbn = req.params.isbn;
+    Database.Book.forEach((book) => {
+        if(book.ISBN === isbn)
+        {
+            book.title = newBook.title;
+            book.category = newBook.category;
+            book.language = newBook.language;
+            book.numOfPage = newBook.numOfPage;
+        }
+        return book;
+    });
+
+    return res.json(Database.Book);
+});
+
+// Route    - /book/addAuthor/:isbn
+// Des      - To add an author to a book(reform it)
+// Access   - Public
+// Method   - PUT
+// Params   - isbn
+// Body     - none
+App.put("/book/addAuthor/:isbn/:id", (req, res) => {
+    const ID = req.params.id;
+    const isbn = req.params.isbn;
+    Database.Book.forEach((book) => {
+        if(book.ISBN === isbn){
+            book.authors.push(parseInt(ID));
+            return book;
+        }
+        return book;        
+    });
+
+    Database.Author.forEach((author) =>{
+        if(author.id === parseInt(ID)){
+            author.books.push(isbn);
+        }
+    });
+
+    return res.json({books: Database.Book, authors: Database.Author});
 });
 
 // Route    - /book/delete/:isbn
@@ -166,6 +216,24 @@ App.post("/author/new", (req, res) => {
     return res.json(Database.Author);
 });
 
+// Route    - /author/updateName/:id/:newName
+// Des      - To update author name
+// Access   - Public
+// Method   - PUT
+// Params   - id, newName
+// Body     - none
+App.put("/author/updateName/:id/:newName", (req, res) => {
+    Database.Author.forEach((author) => {
+        if(author.id === parseInt(req.params.id))
+        {
+            author.name = req.params.newName;
+            return author;
+        }
+        return author;
+    });
+    return res.json(Database.Author);
+});
+
 // Route    - /author/delete/:id
 // Des      - To delete an author(reform it)
 // Access   - Public
@@ -225,6 +293,56 @@ App.post("/publication/new", (req, res) => {
     Database.Publication.push(newPublication);
     return res.json(Database.Publication);
 });
+
+// Route    - /publication/updateName/:id/:newName
+// Des      - To update publication name
+// Access   - Public
+// Method   - PUT
+// Params   - id, newName
+// Body     - none
+App.put("/publication/updateName/:id/:newName", (req, res) => {
+    Database.Publication.forEach((pub) => {
+        if(pub.id === parseInt(req.params.id))
+        {
+            pub.name = req.params.newName;
+            return pub;
+        }
+        return pub;
+    });
+    return res.json(Database.Publication);
+});
+
+// Route    - /publication/updateBook/:id/:bookISBN
+// Des      - To update/add a book a publication
+// Access   - Public
+// Method   - PUT
+// Params   - id, bookISBN
+// Body     - none
+App.put("/publication/addBook/:id/:bookISBN", (req, res) => {
+    let f = 0;
+    const ID = req.params.id;
+    const isbn = req.params.bookISBN;
+    Database.Book.forEach((book) => {
+        if(book.ISBN === isbn){
+            f = book.publication;
+            book.publication = parseInt(ID);
+            return book;
+        }
+        return book;        
+    });
+
+    Database.Publication.forEach((pub) =>{
+        if(pub.id === f){
+            pub.books = pub.books.filter((bookisbn) => bookisbn !== isbn);
+        }
+        else if(pub.id === parseInt(ID)){
+            pub.books.push(isbn);
+        }
+    });
+
+    return res.json({books: Database.Book, publications: Database.Publication});
+});
+
 
 // Route    - /publication/delete/:id
 // Des      - To delete a publication(reform it)

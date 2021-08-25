@@ -1,5 +1,12 @@
+require("dotenv").config();
 
 const express = require("express");
+const mongoose = require('mongoose');
+
+// importing schemas
+const Book = require('./schema/book');
+const Author = require('./schema/author');
+const Publication = require('./schema/publication');
 
 const App = express();
 
@@ -7,8 +14,13 @@ App.use(express.json());
 
 let Database = require("./database");
 
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log(err));
+
 App.get("/", (req, res) => {
-    res.json({message: "Test Server is Running"});
+  res.json({ message: "Test Server is Running" });
 });
 
 // Route    - /book
@@ -17,8 +29,9 @@ App.get("/", (req, res) => {
 // Method   - GET
 // Params   - none
 // Body     - none
-App.get("/book", (req, res) =>{
-    return res.json({Books: Database.Book});
+App.get("/book", async (req, res) => {
+  const bookCollection = await Book.find();
+  return res.json({ Books: bookCollection });
 });
 
 // Route    - /book/:bookName
@@ -27,9 +40,13 @@ App.get("/book", (req, res) =>{
 // Method   - GET
 // Params   - bookName
 // Body     - none
-App.get("/book/:bookID", (req, res) => {
-    const bookName = Database.Book.filter((book) => book.ISBN === req.params.bookID);
-    return res.json({Books: bookName});
+App.get("/book/:bookID", async (req, res) => {
+  const bookName = await Book.findOne({ISBN: req.params.bookID});
+  if(!bookName)
+  return res.json({ 
+    error: `No book with ISBN ${req.params.bookID}` 
+  });
+  return res.json({bookName});
 });
 
 // Route    - /book/c/:category
@@ -39,8 +56,10 @@ App.get("/book/:bookID", (req, res) => {
 // Params   - category
 // Body     - none
 App.get("/book/c/:category", (req, res) => {
-    const bookName = Database.Book.filter((book) => book.category.includes(req.params.category));
-    return res.json({Books: bookName});
+  const bookName = Database.Book.filter((book) =>
+    book.category.includes(req.params.category)
+  );
+  return res.json({ Books: bookName });
 });
 
 // Route    - /book/a/:authorID
@@ -50,9 +69,9 @@ App.get("/book/c/:category", (req, res) => {
 // Params   - authorID
 // Body     - none
 App.get("/book/a/:authorID", (req, res) => {
-    const autId = parseInt(req.params.authorID, 10);
-    const bookName = Database.Book.filter((book) => book.authors.includes(autId));
-    return res.json({Books: bookName});
+  const autId = parseInt(req.params.authorID, 10);
+  const bookName = Database.Book.filter((book) => book.authors.includes(autId));
+  return res.json({ Books: bookName });
 });
 
 // Route    - /book/new
@@ -62,24 +81,22 @@ App.get("/book/a/:authorID", (req, res) => {
 // Params   - none
 // Body     - present
 App.post("/book/new", (req, res) => {
-    const { newBook } = req.body;
-    Database.Book.push(newBook);
-    Database.Author.forEach((author) => {
-        if(newBook.authors.includes(author.id))
-        {
-            author.books.push(newBook.ISBN);
-        }
-        return author;
-    });
-    Database.Publication.forEach((pub) => {
-        if(newBook.publication === pub.id)
-        {
-            pub.books.push(newBook.ISBN);
-            return pub;
-        }
-        return pub;
-    });
-    return res.json(Database);
+  const { newBook } = req.body;
+  Database.Book.push(newBook);
+  Database.Author.forEach((author) => {
+    if (newBook.authors.includes(author.id)) {
+      author.books.push(newBook.ISBN);
+    }
+    return author;
+  });
+  Database.Publication.forEach((pub) => {
+    if (newBook.publication === pub.id) {
+      pub.books.push(newBook.ISBN);
+      return pub;
+    }
+    return pub;
+  });
+  return res.json(Database);
 });
 
 // Route    - /book/update/:isbn
@@ -89,20 +106,19 @@ App.post("/book/new", (req, res) => {
 // Params   - isbn
 // Body     - present
 App.put("/book/update/:isbn", (req, res) => {
-    const { newBook } = req.body;
-    const isbn = req.params.isbn;
-    Database.Book.forEach((book) => {
-        if(book.ISBN === isbn)
-        {
-            book.title = newBook.title;
-            book.category = newBook.category;
-            book.language = newBook.language;
-            book.numOfPage = newBook.numOfPage;
-        }
-        return book;
-    });
+  const { newBook } = req.body;
+  const isbn = req.params.isbn;
+  Database.Book.forEach((book) => {
+    if (book.ISBN === isbn) {
+      book.title = newBook.title;
+      book.category = newBook.category;
+      book.language = newBook.language;
+      book.numOfPage = newBook.numOfPage;
+    }
+    return book;
+  });
 
-    return res.json(Database.Book);
+  return res.json(Database.Book);
 });
 
 // Route    - /book/addAuthor/:isbn
@@ -112,23 +128,23 @@ App.put("/book/update/:isbn", (req, res) => {
 // Params   - isbn
 // Body     - none
 App.put("/book/addAuthor/:isbn/:id", (req, res) => {
-    const ID = req.params.id;
-    const isbn = req.params.isbn;
-    Database.Book.forEach((book) => {
-        if(book.ISBN === isbn){
-            book.authors.push(parseInt(ID));
-            return book;
-        }
-        return book;        
-    });
+  const ID = req.params.id;
+  const isbn = req.params.isbn;
+  Database.Book.forEach((book) => {
+    if (book.ISBN === isbn) {
+      book.authors.push(parseInt(ID));
+      return book;
+    }
+    return book;
+  });
 
-    Database.Author.forEach((author) =>{
-        if(author.id === parseInt(ID)){
-            author.books.push(isbn);
-        }
-    });
+  Database.Author.forEach((author) => {
+    if (author.id === parseInt(ID)) {
+      author.books.push(isbn);
+    }
+  });
 
-    return res.json({books: Database.Book, authors: Database.Author});
+  return res.json({ books: Database.Book, authors: Database.Author });
 });
 
 // Route    - /book/delete/:isbn
@@ -138,8 +154,8 @@ App.put("/book/addAuthor/:isbn/:id", (req, res) => {
 // Params   - isbn
 // Body     - none
 App.delete("/book/delete/:isbn", (req, res) => {
-    Database.Book = Database.Book.filter((book) => book.ISBN !== req.params.isbn);
-    return res.json(Database.Book);
+  Database.Book = Database.Book.filter((book) => book.ISBN !== req.params.isbn);
+  return res.json(Database.Book);
 });
 
 // Route    - /book/deleteAuthor/:isbn/:id
@@ -149,27 +165,26 @@ App.delete("/book/delete/:isbn", (req, res) => {
 // Params   - isbn, id
 // Body     - none
 App.delete("/book/deleteAuthor/:isbn/:id", (req, res) => {
-    const {isbn, id} = req.params;
-    Database.Book.forEach((book) => {
-        if(book.ISBN === isbn){
-            book.authors = book.authors.filter((authorID) => authorID !== parseInt(id));
-            return book;
-        }
-        return book;
-    });
+  const { isbn, id } = req.params;
+  Database.Book.forEach((book) => {
+    if (book.ISBN === isbn) {
+      book.authors = book.authors.filter(
+        (authorID) => authorID !== parseInt(id)
+      );
+      return book;
+    }
+    return book;
+  });
 
-    Database.Author.forEach((author) => {
-        if(author.id === parseInt(id)){
-            author.books = author.books.filter((bookISBN) => bookISBN !== isbn);
-            return author;
-        }
-        return author;
-    });
-    return res.json({books: Database.Book, authors: Database.Author});
+  Database.Author.forEach((author) => {
+    if (author.id === parseInt(id)) {
+      author.books = author.books.filter((bookISBN) => bookISBN !== isbn);
+      return author;
+    }
+    return author;
+  });
+  return res.json({ books: Database.Book, authors: Database.Author });
 });
-
-
-
 
 // Route    - /author
 // Des      - To get all authors
@@ -178,7 +193,7 @@ App.delete("/book/deleteAuthor/:isbn/:id", (req, res) => {
 // Params   - none
 // Body     - none
 App.get("/author", (req, res) => {
-    return res.json({Author: Database.Author});
+  return res.json({ Author: Database.Author });
 });
 
 // Route    - /author/:authorID
@@ -188,9 +203,9 @@ App.get("/author", (req, res) => {
 // Params   - authorID
 // Body     - none
 App.get("/author/:authorID", (req, res) => {
-    const autId = parseInt(req.params.authorID, 10);
-    const authorName = Database.Author.filter((author) => author.id === autId);
-    return res.json({Author: authorName});
+  const autId = parseInt(req.params.authorID, 10);
+  const authorName = Database.Author.filter((author) => author.id === autId);
+  return res.json({ Author: authorName });
 });
 
 // Route    - /author/b/:bookID
@@ -200,8 +215,10 @@ App.get("/author/:authorID", (req, res) => {
 // Params   - bookID
 // Body     - none
 App.get("/author/b/:bookID", (req, res) => {
-    const authorName = Database.Author.filter((author) => author.books.includes(req.params.bookID));
-    return res.json({Author: authorName});
+  const authorName = Database.Author.filter((author) =>
+    author.books.includes(req.params.bookID)
+  );
+  return res.json({ Author: authorName });
 });
 
 // Route    - /author/new
@@ -211,9 +228,9 @@ App.get("/author/b/:bookID", (req, res) => {
 // Params   - none
 // Body     - present
 App.post("/author/new", (req, res) => {
-    const { newAuthor } = req.body;
-    Database.Author.push(newAuthor);
-    return res.json(Database.Author);
+  const { newAuthor } = req.body;
+  Database.Author.push(newAuthor);
+  return res.json(Database.Author);
 });
 
 // Route    - /author/updateName/:id/:newName
@@ -223,15 +240,14 @@ App.post("/author/new", (req, res) => {
 // Params   - id, newName
 // Body     - none
 App.put("/author/updateName/:id/:newName", (req, res) => {
-    Database.Author.forEach((author) => {
-        if(author.id === parseInt(req.params.id))
-        {
-            author.name = req.params.newName;
-            return author;
-        }
-        return author;
-    });
-    return res.json(Database.Author);
+  Database.Author.forEach((author) => {
+    if (author.id === parseInt(req.params.id)) {
+      author.name = req.params.newName;
+      return author;
+    }
+    return author;
+  });
+  return res.json(Database.Author);
 });
 
 // Route    - /author/delete/:id
@@ -241,13 +257,11 @@ App.put("/author/updateName/:id/:newName", (req, res) => {
 // Params   - id
 // Body     - none
 App.delete("/author/delete/:id", (req, res) => {
-    Database.Author = Database.Author.filter((author) => author.id !== parseInt(req.params.id));
-    return res.json(Database.Author);
+  Database.Author = Database.Author.filter(
+    (author) => author.id !== parseInt(req.params.id)
+  );
+  return res.json(Database.Author);
 });
-
-
-
-
 
 // Route    - /publication
 // Des      - To get all publications
@@ -256,7 +270,7 @@ App.delete("/author/delete/:id", (req, res) => {
 // Params   - none
 // Body     - none
 App.get("/publication", (req, res) => {
-    return res.json({Publication: Database.Publication});
+  return res.json({ Publication: Database.Publication });
 });
 
 // Route    - /publication/:publicationID
@@ -266,9 +280,11 @@ App.get("/publication", (req, res) => {
 // Params   - publicationID
 // Body     - none
 App.get("/publication/:publicationID", (req, res) => {
-    const pubID = parseInt(req.params.publicationID);
-    const publicationName = Database.Publication.filter((pub) => pub.id === pubID);
-    return res.json({Publication: publicationName});
+  const pubID = parseInt(req.params.publicationID);
+  const publicationName = Database.Publication.filter(
+    (pub) => pub.id === pubID
+  );
+  return res.json({ Publication: publicationName });
 });
 
 // Route    - /publication/b/:bookID
@@ -278,8 +294,10 @@ App.get("/publication/:publicationID", (req, res) => {
 // Params   - bookID
 // Body     - none
 App.get("/publication/b/:bookID", (req, res) => {
-    const publicationName = Database.Publication.filter((pub) => pub.books.includes(req.params.bookID));
-    return res.json({Publication: publicationName});
+  const publicationName = Database.Publication.filter((pub) =>
+    pub.books.includes(req.params.bookID)
+  );
+  return res.json({ Publication: publicationName });
 });
 
 // Route    - /publication/new
@@ -289,9 +307,9 @@ App.get("/publication/b/:bookID", (req, res) => {
 // Params   - none
 // Body     - present
 App.post("/publication/new", (req, res) => {
-    const { newPublication } = req.body;
-    Database.Publication.push(newPublication);
-    return res.json(Database.Publication);
+  const { newPublication } = req.body;
+  Database.Publication.push(newPublication);
+  return res.json(Database.Publication);
 });
 
 // Route    - /publication/updateName/:id/:newName
@@ -301,15 +319,14 @@ App.post("/publication/new", (req, res) => {
 // Params   - id, newName
 // Body     - none
 App.put("/publication/updateName/:id/:newName", (req, res) => {
-    Database.Publication.forEach((pub) => {
-        if(pub.id === parseInt(req.params.id))
-        {
-            pub.name = req.params.newName;
-            return pub;
-        }
-        return pub;
-    });
-    return res.json(Database.Publication);
+  Database.Publication.forEach((pub) => {
+    if (pub.id === parseInt(req.params.id)) {
+      pub.name = req.params.newName;
+      return pub;
+    }
+    return pub;
+  });
+  return res.json(Database.Publication);
 });
 
 // Route    - /publication/updateBook/:id/:bookISBN
@@ -319,30 +336,28 @@ App.put("/publication/updateName/:id/:newName", (req, res) => {
 // Params   - id, bookISBN
 // Body     - none
 App.put("/publication/addBook/:id/:bookISBN", (req, res) => {
-    let f = 0;
-    const ID = req.params.id;
-    const isbn = req.params.bookISBN;
-    Database.Book.forEach((book) => {
-        if(book.ISBN === isbn){
-            f = book.publication;
-            book.publication = parseInt(ID);
-            return book;
-        }
-        return book;        
-    });
+  let f = 0;
+  const ID = req.params.id;
+  const isbn = req.params.bookISBN;
+  Database.Book.forEach((book) => {
+    if (book.ISBN === isbn) {
+      f = book.publication;
+      book.publication = parseInt(ID);
+      return book;
+    }
+    return book;
+  });
 
-    Database.Publication.forEach((pub) =>{
-        if(pub.id === f){
-            pub.books = pub.books.filter((bookisbn) => bookisbn !== isbn);
-        }
-        else if(pub.id === parseInt(ID)){
-            pub.books.push(isbn);
-        }
-    });
+  Database.Publication.forEach((pub) => {
+    if (pub.id === f) {
+      pub.books = pub.books.filter((bookisbn) => bookisbn !== isbn);
+    } else if (pub.id === parseInt(ID)) {
+      pub.books.push(isbn);
+    }
+  });
 
-    return res.json({books: Database.Book, publications: Database.Publication});
+  return res.json({ books: Database.Book, publications: Database.Publication });
 });
-
 
 // Route    - /publication/delete/:id
 // Des      - To delete a publication(reform it)
@@ -351,8 +366,10 @@ App.put("/publication/addBook/:id/:bookISBN", (req, res) => {
 // Params   - id
 // Body     - none
 App.delete("/publication/delete/:id", (req, res) => {
-    Database.Publication = Database.Publication.filter((pub) => pub.id !== parseInt(req.params.id));
-    return res.json(Database.Publication);
+  Database.Publication = Database.Publication.filter(
+    (pub) => pub.id !== parseInt(req.params.id)
+  );
+  return res.json(Database.Publication);
 });
 
 // Route    - /publication/deleteBook/:isbn/:id
@@ -362,28 +379,25 @@ App.delete("/publication/delete/:id", (req, res) => {
 // Params   - isbn, id
 // Body     - none
 App.delete("/publication/deleteBook/:isbn/:id", (req, res) => {
-    const {isbn, id} = req.params;
-    Database.Book.forEach((book) => {
-        if(book.ISBN === isbn){
-            book.publication = -1;
-            return book;
-        }
-        return book;
-    });
+  const { isbn, id } = req.params;
+  Database.Book.forEach((book) => {
+    if (book.ISBN === isbn) {
+      book.publication = -1;
+      return book;
+    }
+    return book;
+  });
 
-    Database.Publication.forEach((publication) => {
-        if(publication.id === parseInt(id)){
-            publication.books = publication.books.filter((bookISBN) => bookISBN !== isbn);
-            return publication;
-        }
-        return publication;
-    });
-    return res.json({books: Database.Book, publications: Database.Publication});
+  Database.Publication.forEach((publication) => {
+    if (publication.id === parseInt(id)) {
+      publication.books = publication.books.filter(
+        (bookISBN) => bookISBN !== isbn
+      );
+      return publication;
+    }
+    return publication;
+  });
+  return res.json({ books: Database.Book, publications: Database.Publication });
 });
-
-
-
-
-
 
 App.listen(4000, () => console.log("Test Run"));

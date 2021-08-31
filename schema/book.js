@@ -10,15 +10,21 @@ const BookSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  author: [Number],
+  authors: {
+    type: [Number],
+    required: true,
+  },
   language: String,
   pubDate: String,
   numOfPage: Number,
   category: [String],
-  publication: Number,
+  publication: {
+    type: Number,
+    required: true,
+  },
 });
 
 // create a book model
-const BookModel = mongoose.model('book', BookSchema);
+const BookModel = mongoose.model('books', BookSchema);
 
 module.exports = BookModel;

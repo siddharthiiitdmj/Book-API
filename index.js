@@ -1,12 +1,12 @@
 require("dotenv").config();
 
 const express = require("express");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 // importing schemas
-const Book = require('./schema/book');
-const Author = require('./schema/author');
-const Publication = require('./schema/publication');
+const Book = require("./schema/book");
+const Author = require("./schema/author");
+const Publication = require("./schema/publication");
 
 const App = express();
 
@@ -41,12 +41,12 @@ App.get("/book", async (req, res) => {
 // Params   - bookName
 // Body     - none
 App.get("/book/:bookID", async (req, res) => {
-  const bookName = await Book.findOne({ISBN: req.params.bookID});
-  if(!bookName)
-  return res.json({ 
-    error: `No book with ISBN ${req.params.bookID}` 
-  });
-  return res.json({bookName});
+  const bookName = await Book.findOne({ ISBN: req.params.bookID });
+  if (!bookName)
+    return res.json({
+      error: `No book with ISBN ${req.params.bookID}`,
+    });
+  return res.json({ book: bookName });
 });
 
 // Route    - /book/c/:category
@@ -55,11 +55,13 @@ App.get("/book/:bookID", async (req, res) => {
 // Method   - GET
 // Params   - category
 // Body     - none
-App.get("/book/c/:category", (req, res) => {
-  const bookName = Database.Book.filter((book) =>
-    book.category.includes(req.params.category)
-  );
-  return res.json({ Books: bookName });
+App.get("/book/c/:category", async (req, res) => {
+
+  const bookNames = await Book.find({category: req.params.category});
+  if(!bookNames)
+  return res.json({error: `No book with category ${req.params.category}`});
+
+  return res.json({books: bookNames});
 });
 
 // Route    - /book/a/:authorID
@@ -68,10 +70,13 @@ App.get("/book/c/:category", (req, res) => {
 // Method   - GET
 // Params   - authorID
 // Body     - none
-App.get("/book/a/:authorID", (req, res) => {
-  const autId = parseInt(req.params.authorID, 10);
-  const bookName = Database.Book.filter((book) => book.authors.includes(autId));
-  return res.json({ Books: bookName });
+App.get("/book/a/:authorID", async (req, res) => {
+  const autId = parseInt(req.params.authorID);
+  const bookNames = await Book.find({authors: autId});
+  if(!bookNames)
+  return res.json({error: `No book with authorID ${autId}`});
+
+  return res.json({books: bookNames});
 });
 
 // Route    - /book/new
@@ -80,23 +85,17 @@ App.get("/book/a/:authorID", (req, res) => {
 // Method   - POST
 // Params   - none
 // Body     - present
-App.post("/book/new", (req, res) => {
-  const { newBook } = req.body;
-  Database.Book.push(newBook);
-  Database.Author.forEach((author) => {
-    if (newBook.authors.includes(author.id)) {
-      author.books.push(newBook.ISBN);
-    }
-    return author;
-  });
-  Database.Publication.forEach((pub) => {
-    if (newBook.publication === pub.id) {
-      pub.books.push(newBook.ISBN);
-      return pub;
-    }
-    return pub;
-  });
-  return res.json(Database);
+App.post("/book/new", async (req, res) => {
+  try {
+    const { newBook } = req.body;
+
+    await Book.create(newBook);
+
+    return res.json({message: 'Book added successfully'});
+  } 
+  catch (e) {
+    return res.json({ error: e.message });
+  }
 });
 
 // Route    - /book/update/:isbn
@@ -105,20 +104,24 @@ App.post("/book/new", (req, res) => {
 // Method   - PUT
 // Params   - isbn
 // Body     - present
-App.put("/book/update/:isbn", (req, res) => {
-  const { newBook } = req.body;
+App.put("/book/updateTitle/:isbn/:newTitle", async (req, res) => {
+  const bookTitle = req.params.newTitle;
   const isbn = req.params.isbn;
-  Database.Book.forEach((book) => {
-    if (book.ISBN === isbn) {
-      book.title = newBook.title;
-      book.category = newBook.category;
-      book.language = newBook.language;
-      book.numOfPage = newBook.numOfPage;
+  const book = await Book.findOne({ISBN: isbn});
+  if(!book)
+  {
+    return res.json({ error: `There exist no book with ISBN ${isbn}`});
+  }
+  await Book.findOneAndUpdate(
+    {
+      ISBN: isbn 
+    },
+    {
+      title: bookTitle
     }
-    return book;
-  });
+  );
 
-  return res.json(Database.Book);
+  return res.json({message: "Title changed successfully"});
 });
 
 // Route    - /book/addAuthor/:isbn
@@ -127,24 +130,37 @@ App.put("/book/update/:isbn", (req, res) => {
 // Method   - PUT
 // Params   - isbn
 // Body     - none
-App.put("/book/addAuthor/:isbn/:id", (req, res) => {
+App.put("/book/addAuthor/:isbn/:id", async (req, res) => {
   const ID = req.params.id;
   const isbn = req.params.isbn;
-  Database.Book.forEach((book) => {
-    if (book.ISBN === isbn) {
-      book.authors.push(parseInt(ID));
-      return book;
-    }
-    return book;
-  });
+  const book = await Book.findOne({ISBN: isbn});
+  if(!book){
+    return res.json({ error: `There exist no book with ISBN ${isbn}`});
+  }
 
-  Database.Author.forEach((author) => {
-    if (author.id === parseInt(ID)) {
-      author.books.push(isbn);
+  await Book.findOneAndUpdate(
+    {
+      ISBN: isbn
+    },
+    {
+      $addToSet: {
+        authors: ID
+      }
     }
-  });
+  );
 
-  return res.json({ books: Database.Book, authors: Database.Author });
+  await Author.findOneAndUpdate(
+    {
+      id: ID
+    },
+    {
+      $addToSet: {
+        books: isbn
+      }
+    }
+  );
+
+  return res.json({ message: "Author added successfully" });
 });
 
 // Route    - /book/delete/:isbn
@@ -153,9 +169,15 @@ App.put("/book/addAuthor/:isbn/:id", (req, res) => {
 // Method   - Delete
 // Params   - isbn
 // Body     - none
-App.delete("/book/delete/:isbn", (req, res) => {
-  Database.Book = Database.Book.filter((book) => book.ISBN !== req.params.isbn);
-  return res.json(Database.Book);
+App.delete("/book/delete/:bookID", async (req, res) => {
+  const isbn = req.params.bookID;
+  const book = await Book.findOne({ISBN: isbn});
+  if(!book){
+    return res.json({ error: `There exist no book with ISBN ${isbn}`});
+  }
+
+  await Book.remove({ISBN: isbn});
+  return res.json({message: "Book deleted successfully"});
 });
 
 // Route    - /book/deleteAuthor/:isbn/:id
@@ -164,26 +186,42 @@ App.delete("/book/delete/:isbn", (req, res) => {
 // Method   - Delete
 // Params   - isbn, id
 // Body     - none
-App.delete("/book/deleteAuthor/:isbn/:id", (req, res) => {
-  const { isbn, id } = req.params;
-  Database.Book.forEach((book) => {
-    if (book.ISBN === isbn) {
-      book.authors = book.authors.filter(
-        (authorID) => authorID !== parseInt(id)
-      );
-      return book;
-    }
-    return book;
-  });
+App.delete("/book/deleteAuthor/:isbn/:id", async (req, res) => {
+  const isbn = req.params.isbn;
+  const ID = req.params.id;
+  const book = await Book.findOne({ISBN: isbn});
+  if(!book){
+    return res.json({ error: `There exist no book with ISBN ${isbn}`});
+  }
+  const aut = await Author.findOne({id: ID});
+  if(!aut){
+    return res.json({ error: `There exist no author with id ${ID}`});
+  }
 
-  Database.Author.forEach((author) => {
-    if (author.id === parseInt(id)) {
-      author.books = author.books.filter((bookISBN) => bookISBN !== isbn);
-      return author;
+  await Book.findOneAndUpdate(
+    {
+      ISBN: isbn
+    },
+    {
+      $pull: {
+        authors: ID
+      }
     }
-    return author;
-  });
-  return res.json({ books: Database.Book, authors: Database.Author });
+  );
+
+  await Author.findOneAndUpdate(
+    {
+      id: ID
+    },
+    {
+      $pull: {
+        books: isbn
+      }
+    }
+  );
+
+  return res.json({message: `Author deleted from the book with ISBN ${isbn} successfully`});
+
 });
 
 // Route    - /author
@@ -192,8 +230,8 @@ App.delete("/book/deleteAuthor/:isbn/:id", (req, res) => {
 // Method   - GET
 // Params   - none
 // Body     - none
-App.get("/author", (req, res) => {
-  return res.json({ Author: Database.Author });
+App.get("/author", async (req, res) => {
+  
 });
 
 // Route    - /author/:authorID
